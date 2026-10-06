@@ -1,4 +1,4 @@
-# AGENT.md — 인스타 업로드 자동화 프로그램 기획서
+# AGENTS.md — 인스타 업로드 자동화 프로그램 기획서
 
 ## 1. 개요
 
@@ -101,7 +101,7 @@
 
 ```
 insta-uploader/
-├─ AGENT.md
+├─ AGENTS.md
 ├─ requirements.txt
 ├─ main.py            # 진입점, PySide6 메인 윈도우
 ├─ ui.py              # 화면(메인/설정/기록)
