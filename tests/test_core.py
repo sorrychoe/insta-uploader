@@ -1,5 +1,6 @@
 """Offline checks: python -m unittest discover -s tests -v"""
 import json
+import importlib.util
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -116,6 +117,59 @@ class CaptionTests(unittest.TestCase):
                 ai.generate(PRODUCT, {"model": "test"}, "test-key")
             self.assertEqual(create.call_count, 4)
             self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2, 4])
+
+
+class ConnectionTests(unittest.TestCase):
+    @unittest.skipUnless(importlib.util.find_spec("PySide6"), "PySide6 is not installed")
+    def test_each_service_checks_only_its_own_connection(self):
+        from ui import MainWindow
+
+        for service in ("OpenAI", "인스타", "Cloudinary"):
+            with self.subTest(service=service):
+                window = Mock()
+                window.save_settings.return_value = True
+                window.run_job.side_effect = lambda operation, callback: callback(operation(Mock()))
+                with patch("storage.load_config", return_value=storage.DEFAULTS.copy()), \
+                        patch("storage.get_secret", return_value="test-key") as secret, \
+                        patch("ai.test_connection", return_value="연결 성공") as openai_check, \
+                        patch("instagram.configured_client") as instagram_check, \
+                        patch("instagram.configured_host") as hosting_check:
+                    instagram_check.return_value.test_connection.return_value = "연결 성공"
+                    hosting_check.return_value.test_connection.return_value = "연결 성공"
+                    MainWindow.test_connections(window, service)
+                    window.save_settings.assert_called_once_with(notify=False, service=service)
+                    for name, check in (("OpenAI", openai_check), ("인스타", instagram_check), ("Cloudinary", hosting_check)):
+                        self.assertEqual(check.call_count, int(name == service))
+                    self.assertEqual(secret.call_count, int(service == "OpenAI"))
+                    window.connections_tested.assert_called_once_with(f"{service}: 연결 성공")
+
+    @unittest.skipUnless(importlib.util.find_spec("PySide6"), "PySide6 is not installed")
+    def test_service_save_does_not_validate_or_save_other_services(self):
+        from PySide6.QtCore import QDate
+        from ui import MainWindow
+
+        for service, expected in (("OpenAI", {"model", "openai_key"}),
+                                  ("인스타", {"ig_user_id", "ig_token", "graph_version"}),
+                                  ("Cloudinary", {"cloud_name", "cloud_api_key", "cloud_api_secret"})):
+            with self.subTest(service=service):
+                window = Mock()
+                fields = {key: "changed" for key in (*storage.SECRET_NAMES, "model", "ig_user_id", "graph_version", "cloud_name", "fixed_hashtags")}
+                fields["fixed_hashtags"] = "#invalid-tag"
+                fields["model"] = "model" if service == "OpenAI" else ""
+                window.settings = {key: Mock() for key in fields}
+                for key, field in window.settings.items():
+                    field.text.return_value = fields[key]
+                window.expiry.date.return_value = QDate(2030, 1, 1)
+                with patch("storage.load_config", return_value=storage.DEFAULTS.copy()), \
+                        patch("storage.save_config") as save, patch("storage.save_secret") as secret:
+                    self.assertTrue(MainWindow.save_settings(window, notify=False, service=service))
+                    saved = save.call_args.args[0]
+                    for key in storage.DEFAULTS:
+                        if key == "token_expires_at" and service == "인스타":
+                            self.assertTrue(saved[key].startswith("2030-01-01"))
+                        else:
+                            self.assertEqual(saved[key], fields[key] if key in expected else storage.DEFAULTS[key])
+                    self.assertEqual({call.args[0] for call in secret.call_args_list}, expected & set(storage.SECRET_NAMES))
 
 
 class StorageTests(unittest.TestCase):
