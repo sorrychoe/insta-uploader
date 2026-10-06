@@ -23,6 +23,8 @@
 
 API 키와 토큰은 Windows 자격 증명 관리자에 안전하게 저장됩니다. 계정 준비부터 게시, 문제 해결까지는 [설정 가이드](docs/setup.md)를 참고하세요.
 
+소개글 생성은 OpenAI API 키만으로 사용할 수 있습니다. OpenAI·인스타·Cloudinary의 저장 및 연결 테스트 버튼은 각각 해당 서비스 설정만 저장하고 검사합니다. 다른 서비스의 입력값이나 연결 상태는 영향을 주지 않습니다. 인스타·Cloudinary 설정은 실제 게시할 때 필요하며, 로컬 SQLite DB에는 별도 키가 필요하지 않습니다.
+
 ## 기술 스택
 
 Python 3.12 · PySide6 · Pillow · OpenAI API · Instagram Graph API · Cloudinary · PyInstaller

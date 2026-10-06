@@ -288,15 +288,17 @@ class MainWindow(QMainWindow):
         form.addRow("기본 말투", self.default_tone)
         layout.addLayout(form)
         button("설정 저장", self.save_settings, layout)
-        button("저장 후 연결 테스트", self.test_connections, layout)
+        for service in ("OpenAI", "인스타", "Cloudinary"):
+            button(f"{service} 저장 및 연결 테스트",
+                   lambda checked=False, service=service: self.test_connections(service), layout)
         guide = QLabel(
             "최초 설정\n"
             "1. 인스타 계정을 비즈니스 또는 크리에이터로 전환합니다.\n"
             "2. Meta 개발자 앱에 Instagram 제품을 추가하고 본인 계정을 연결합니다.\n"
             "3. instagram_business_basic, instagram_business_content_publish 권한의 장기 토큰을 발급합니다.\n"
             "4. OpenAI API 키와 결제 설정, Cloudinary 클라우드 이름·키·비밀키를 준비합니다.\n"
-            "5. 위 값을 저장하고 연결 테스트를 실행합니다.\n\n"
-            "연결 테스트는 Cloudinary에 작은 테스트 사진을 업로드한 뒤 삭제합니다.\n"
+            "5. 서비스별 저장 및 연결 테스트 버튼을 누릅니다.\n\n"
+            "Cloudinary 연결 테스트는 작은 테스트 사진을 업로드한 뒤 삭제합니다.\n"
             "토큰은 앱 실행 중과 게시 전에 만료 7일 이내이면 자동 갱신합니다.\n"
             "앱이 꺼져 있는 동안에는 갱신되지 않습니다."
         )
@@ -507,22 +509,30 @@ class MainWindow(QMainWindow):
         if record and record["permalink"].startswith(("https://www.instagram.com/", "https://instagram.com/")):
             QDesktopServices.openUrl(QUrl(record["permalink"]))
 
-    def save_settings(self, checked=False, notify=True):
+    def save_settings(self, checked=False, notify=True, service=None):
         try:
+            selected = {
+                "OpenAI": ("openai_key", "model"),
+                "인스타": ("ig_user_id", "ig_token", "graph_version"),
+                "Cloudinary": ("cloud_name", "cloud_api_key", "cloud_api_secret"),
+            }[service] if service else self.settings
             config = storage.load_config()
             for key, field in self.settings.items():
-                if key not in storage.SECRET_NAMES:
+                if key in selected and key not in storage.SECRET_NAMES:
                     config[key] = field.text().strip()
-            if not config["model"]:
+            if "model" in selected and not config["model"]:
                 raise ValueError("OpenAI 모델명을 입력해 주세요.")
-            if len(ai.parse_hashtags(config["fixed_hashtags"])) > 30:
+            if "fixed_hashtags" in selected and len(ai.parse_hashtags(config["fixed_hashtags"])) > 30:
                 raise ValueError("고정 해시태그는 최대 30개까지 입력해 주세요.")
-            config["tone"] = self.default_tone.currentText()
-            if (self.settings["ig_token"].text().strip()
+            if service is None:
+                config["tone"] = self.default_tone.currentText()
+            if "ig_token" in selected and (self.settings["ig_token"].text().strip()
                     or config["token_expires_at"][:10] != self.expiry.date().toString("yyyy-MM-dd")):
                 config["token_expires_at"] = datetime.combine(
                     self.expiry.date().toPython(), datetime.min.time(), tzinfo=timezone.utc).isoformat()
             for key in storage.SECRET_NAMES:
+                if key not in selected:
+                    continue
                 value = self.settings[key].text().strip()
                 if value:
                     storage.save_secret(key, value)
@@ -536,24 +546,21 @@ class MainWindow(QMainWindow):
             self.show_error(str(error) if isinstance(error, ValueError) else "설정을 저장하지 못했습니다. 저장 공간을 확인해 주세요.")
             return False
 
-    def test_connections(self):
-        if not self.save_settings(notify=False):
+    def test_connections(self, service):
+        if not self.save_settings(notify=False, service=service):
             return
         def operation(progress):
             config = storage.load_config()
-            results = []
-            checks = [
-                ("OpenAI", lambda: ai.test_connection(storage.get_secret("openai_key"), config["model"])),
-                ("인스타", lambda: instagram.configured_client(config).test_connection()),
-                ("Cloudinary", lambda: instagram.configured_host(config).test_connection()),
-            ]
-            for name, check in checks:
-                progress(f"{name} 연결 확인 중")
-                try:
-                    results.append(check())
-                except ValueError as error:
-                    results.append(f"{name}: {error}")
-            return "\n\n".join(results)
+            checks = {
+                "OpenAI": lambda: ai.test_connection(storage.get_secret("openai_key"), config["model"]),
+                "인스타": lambda: instagram.configured_client(config).test_connection(),
+                "Cloudinary": lambda: instagram.configured_host(config).test_connection(),
+            }
+            progress(f"{service} 연결 확인 중")
+            try:
+                return f"{service}: {checks[service]()}"
+            except ValueError as error:
+                raise ValueError(f"{service}: {error}") from None
         self.run_job(operation, self.connections_tested)
 
     def connections_tested(self, result):
