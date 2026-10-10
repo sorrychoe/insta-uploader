@@ -46,12 +46,24 @@ class Instagram:
             kind = PublishUncertain if publishing else InstagramError
             raise kind("인스타 응답을 확인하지 못했습니다. 인터넷 연결을 확인해 주세요.") from None
         if "error" in payload or not response.ok:
-            code = payload.get("error", {}).get("code")
+            error = payload.get("error", {})
+            if not isinstance(error, dict):
+                error = {}
+            code = error.get("code")
             if code == 190:
                 raise InstagramError("인스타 연결이 만료되었거나 해제되었습니다. 설정에서 새 장기 토큰으로 다시 연결해 주세요.")
+            if code in (10, 200):
+                raise InstagramError("Meta 앱에 instagram_business_basic 및 instagram_business_content_publish 권한이 있는지 확인해 주세요.")
+            if code == 100:
+                raise InstagramError("인스타 계정 ID나 API 버전이 올바른지, Instagram Login용 계정 ID인지 확인해 주세요.")
             if code in (4, 9, 17, 32, 613):
                 raise InstagramError("인스타 요청 또는 게시 한도에 도달했습니다. 잠시 후 연결 테스트로 남은 한도를 확인해 주세요.")
-            raise InstagramError("인스타가 요청을 거절했습니다. 계정 권한, 사진, 캡션과 해시태그를 확인해 주세요.")
+            # Meta's error message can echo request data; expose only safe error identifiers.
+            details = ", ".join(f"{key}={error[key]}" for key in ("code", "error_subcode", "type") if error.get(key))
+            raise InstagramError(
+                f"인스타 API가 요청을 거절했습니다 (HTTP {response.status_code}"
+                f"{', ' + details if details else ''}). Instagram Login 토큰, 계정 ID와 권한을 확인해 주세요."
+            )
         return payload
 
     def remaining(self):

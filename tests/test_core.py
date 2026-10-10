@@ -204,6 +204,26 @@ class StorageTests(unittest.TestCase):
 
 
 class InstagramTests(unittest.TestCase):
+    def test_connection_errors_explain_missing_permission_without_exposing_token(self):
+        client = instagram.Instagram("123", "secret-token")
+        response = Mock(status_code=403, ok=False)
+        response.json.return_value = {"error": {
+            "message": "request echoed secret-token", "type": "OAuthException",
+            "code": 10, "error_subcode": 12345,
+        }}
+        with patch("instagram.requests.request", return_value=response):
+            with self.assertRaisesRegex(instagram.InstagramError, "instagram_business_content_publish"):
+                client.test_connection()
+        response.json.return_value = {"error": {
+            "message": "request echoed secret-token", "type": "OAuthException", "code": 999,
+        }}
+        with patch("instagram.requests.request", return_value=response):
+            with self.assertRaises(instagram.InstagramError) as caught:
+                client.test_connection()
+        self.assertIn("HTTP 403", str(caught.exception))
+        self.assertIn("code=999", str(caught.exception))
+        self.assertNotIn("secret-token", str(caught.exception))
+
     def test_single_and_carousel_wait_for_every_container(self):
         client = instagram.Instagram("123", "secret")
         with patch.object(client, "request", side_effect=[{"id": "11"}]) as request, patch.object(client, "wait_ready") as wait:
