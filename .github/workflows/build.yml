@@ -30,7 +30,7 @@ jobs:
       - name: Run offline tests
         run: python -m unittest discover -s tests -v
       - name: Build Windows executable
-        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name InstaUploader --hidden-import keyring.backends.Windows --collect-data PySide6 main.py
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name InstaUploader --icon assets/icon.ico --add-data assets/icon.ico:assets --hidden-import keyring.backends.Windows --collect-data PySide6 main.py
       - name: Upload Windows executable
         uses: actions/upload-artifact@v7
         with:

@@ -22,7 +22,7 @@ test:
 	"$(VENV_PYTHON)" -m unittest discover -s tests -v
 
 build: test
-	"$(VENV_PYTHON)" -m PyInstaller --noconfirm --clean --onefile --windowed --name InstaUploader --collect-data PySide6 main.py
+	"$(VENV_PYTHON)" -m PyInstaller --noconfirm --clean --onefile --windowed --name InstaUploader --icon assets/icon.ico --add-data assets/icon.ico:assets --collect-data PySide6 main.py
 
 clean:
 	find . -type d \( -name .venv -o -name .git \) -prune -o -type d -name __pycache__ -prune -exec rm -rf {} + -o -type f \( -name '*.pyc' -o -name '*.pyo' \) -exec rm -f {} +
