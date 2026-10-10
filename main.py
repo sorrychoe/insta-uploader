@@ -1,7 +1,9 @@
 """Run with Python 3.12; build Linux locally or Windows through GitHub Actions."""
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QLibraryInfo, QLockFile, QTranslator
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 import storage
@@ -11,6 +13,7 @@ from ui import MainWindow
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("InstaUploader")
+    app.setWindowIcon(QIcon(str(Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / "assets" / "icon.ico")))
     translator = QTranslator(app)
     if translator.load("qtbase_ko", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
         app.installTranslator(translator)
