@@ -37,7 +37,14 @@ make run       # 실행
 make test      # 테스트
 ```
 
-Windows exe는 `main` 브랜치에 푸시하면 GitHub Actions가 빌드해 Releases에 올립니다. 상세 기획은 [AGENTS.md](AGENTS.md)를 참고하세요.
+`main` 푸시·PR 시 GitHub Actions가 테스트와 Windows exe 빌드를 수행합니다. 릴리스는 버전 태그를 푸시할 때 생성됩니다.
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0   # → Releases에 v0.1.0 생성, InstaUploader.exe 첨부
+```
+
+ 상세 기획은 [AGENTS.md](AGENTS.md)를 참고하세요.
 
 ## 라이선스
 
